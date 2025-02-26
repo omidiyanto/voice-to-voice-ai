@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JARVIS - Realtime Voice2Voice AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Compact Header -->
+        <div class="header">
+            <div class="logo">J.A.R.V.I.S</div>
+            <div class="status-container">
+                <div class="status-bullet" id="statusIndicator"></div>
+                <div id="statusText">Initializing...</div>
+            </div>
+        </div>
+
+        <!-- Audio Visualizer -->
+        <div class="audio-visualizer">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+
+        <!-- Centered Chat Container -->
+        <div class="chat-container" id="chatContainer"></div>
+
+        <!-- Compact Footer -->
+        <footer>
+            <a href="https://github.com/your-repo" target="_blank" class="github-link">
+                <i class="fab fa-github"></i>
+            </a>
+            <div class="author">Developed by O. Midiyanto</div>
+        </footer>
+    </div>
+
+    <script>
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const chatContainer = document.getElementById('chatContainer');
+        let isProcessing = false;
+        let recognition;
+
+        function initSpeech() {
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = () => {
+                    statusText.textContent = "Listening...";
+                    statusIndicator.classList.add('listening');
+                };
+
+                recognition.onresult = async (event) => {
+                    if (isProcessing) return;
+                    
+                    const transcript = Array.from(event.results)
+                        .slice(-1)[0][0].transcript;
+
+                    if (event.results[event.results.length-1].isFinal) {
+                        isProcessing = true;
+                        statusText.textContent = "Processing...";
+                        statusIndicator.classList.remove('listening');
+                        statusIndicator.classList.add('processing');
+
+                        try {
+                            addMessage(transcript, 'user');
+                            
+                            const response = await fetch('/chat', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({message: transcript})
+                            });
+                            
+                            const data = await response.json();
+                            if(data.status === 'success') {
+                                addMessage(data.response, 'assistant');
+                                await speak(data.response);
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                        }
+
+                        isProcessing = false;
+                        statusIndicator.classList.remove('processing');
+                        recognition.start();
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Recognition error:', event.error);
+                    recognition.stop();
+                    statusText.textContent = "Reconnecting...";
+                    setTimeout(initSpeech, 2000);
+                };
+
+                recognition.onend = () => {
+                    if (!isProcessing) {
+                        statusText.textContent = "Starting...";
+                        setTimeout(() => recognition.start(), 500);
+                    }
+                };
+
+                recognition.start();
+            }
+        }
+
+        function addMessage(text, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="message-icon">
+                        ${role === 'user' ? 
+                            '<i class="fas fa-user"></i>' : 
+                            '<i class="fas fa-robot"></i>'}
+                    </div>
+                    <div class="bubble">${text}</div>
+                </div>
+            `;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function speak(text) {
+            return new Promise((resolve) => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.1;
+                utterance.pitch = 1.2;
+                utterance.onend = resolve;
+                window.speechSynthesis.speak(utterance);
+            });
+        }
+
+        window.onload = () => {
+            if ('webkitSpeechRecognition' in window) {
+                initSpeech();
+            } else {
+                statusText.textContent = "Use Chrome for best experience";
+            }
+        };
+    </script>
+</body>
+</html>
