@@ -5,38 +5,48 @@ import os
 import uuid
 
 load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 
+# Initialize Groq client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# System prompt template
-SYSTEM_PROMPT = "You are JARVIS, a friendly and chill super intelligence AI created by O.Midiyanto. Keep responses very short and conversational."
+# System prompt configuration
+SYSTEM_PROMPT = {
+    "role": "system",
+    "content": "You are JARVIS, a real-time voice assistant. Keep responses very short and conversational."
+}
 
 def get_chat_history():
-    """Initialize or retrieve session-specific chat history"""
+    """Retrieve or initialize session-specific chat history"""
     if 'chat_history' not in session:
-        session['chat_history'] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
-    return session['chat_history']
+        session['chat_history'] = [SYSTEM_PROMPT]
+    return session['chat_history'].copy()
 
 def trim_history(history, max_length=6):
-    """Keep only the system prompt + last max_length messages"""
+    """Maintain conversation context while preventing memory bloat"""
     return [history[0]] + history[-max_length:]
 
 @app.route('/')
 def index():
-    # Initialize session with unique ID
+    """Initialize or renew session"""
     if 'session_id' not in session:
+        session.permanent = True
         session['session_id'] = str(uuid.uuid4())
+        session['chat_history'] = [SYSTEM_PROMPT]
     return render_template('index.html')
 
 @app.route('/chat', methods=['POST'])
-def chat():
+def chat_handler():
+    """Handle chat requests with session isolation"""
     try:
+        # Get session-specific history
         history = get_chat_history()
-        user_message = request.json['message']
+        user_message = request.json.get('message', '')
+        
+        if not user_message:
+            return jsonify({"error": "Empty message", "status": "error"}), 400
         
         # Add user message to history
         history.append({"role": "user", "content": user_message})
@@ -49,11 +59,11 @@ def chat():
             max_tokens=100
         )
         
-        # Add AI response to history
+        # Process AI response
         assistant_response = response.choices[0].message.content
         history.append({"role": "assistant", "content": assistant_response})
         
-        # Update session storage and trim history
+        # Update session history with trimmed context
         session['chat_history'] = trim_history(history)
         
         return jsonify({
@@ -62,7 +72,11 @@ def chat():
         })
     
     except Exception as e:
-        return jsonify({"error": str(e), "status": "error"}), 500
+        return jsonify({
+            "error": str(e),
+            "status": "error"
+        }), 500
 
+# Vercel requires this for proper initialization
 if __name__ == '__main__':
-    app.run(debug=False, port=5000, host='0.0.0.0')
+    app.run()
