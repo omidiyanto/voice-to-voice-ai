@@ -2,4 +2,3 @@ groq
 python-dotenv
 Flask
 uuid
-serverless-wsgi
