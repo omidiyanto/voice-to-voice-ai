@@ -6,14 +6,9 @@
       "use": "@vercel/python"
     }
   ],
-  "routes": [
-    {
-      "src": "/",
-      "dest": "/"
-    },
-    {
-      "src": "/chat",
-      "dest": "/chat"
+  "rewrites": [
+    { "source": "/(.*)", 
+      "destination": "/app" 
     }
-  ]
+   ]
 }
