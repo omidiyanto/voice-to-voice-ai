@@ -1,5 +1,6 @@
 groq
 python-dotenv
 Flask
+flask_cors
 uuid
 gtts

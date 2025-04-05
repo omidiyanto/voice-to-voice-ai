@@ -4,8 +4,9 @@
     <title>NOVA - Neural-Orchestrated Voice Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* Gaya overlay untuk interaksi awal */
         #overlay {
             position: fixed;
             top: 0;
@@ -24,20 +25,19 @@
     </style>
 </head>
 <body>
-    <!-- Overlay untuk interaksi awal guna meng-unlock pemutaran audio -->
-    <div id="overlay">Click to start conversation</div>
-    
+    <div id="overlay" style="display:none;"></div>
+
     <div class="container">
-        <!-- Compact Header -->
         <div class="header">
-            <div class="logo">N.O.V.A.</div>
+            <div class="logo">
+                <img class="logo-image" src="{{ url_for('static', filename='logo.png') }}" alt="NOVA Logo">
+            </div>
             <div class="status-container">
                 <div class="status-bullet" id="statusIndicator"></div>
                 <div id="statusText">Initializing...</div>
             </div>
         </div>
 
-        <!-- Audio Visualizer -->
         <div class="audio-visualizer">
             <div class="bar"></div>
             <div class="bar"></div>
@@ -46,13 +46,10 @@
             <div class="bar"></div>
         </div>
 
-        <!-- Centered Chat Container -->
         <div class="chat-container" id="chatContainer"></div>
 
-        <!-- Audio element untuk memutar TTS -->
         <audio id="ttsAudio"></audio>
 
-        <!-- Compact Footer -->
         <footer>
             <a href="https://github.com/omidiyanto/voice-to-voice-ai" target="_blank" class="github-link">
                 <i class="fab fa-github"></i>
@@ -69,9 +66,19 @@
         const ttsAudio = document.getElementById('ttsAudio');
         let isProcessing = false;
         let recognition;
+        let manualReconnect = false;
 
-        // Fungsi inisialisasi Speech Recognition
         function initSpeech() {
+            if (recognition) {
+                recognition.onstart = null;
+                recognition.onresult = null;
+                recognition.onerror = null;
+                recognition.onend = null;
+                try {
+                    recognition.stop();
+                } catch(e) {}
+            }
+
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 recognition = new SpeechRecognition();
@@ -87,7 +94,7 @@
 
                 recognition.onresult = async (event) => {
                     if (isProcessing) return;
-                    
+
                     const transcript = Array.from(event.results)
                         .slice(-1)[0][0].transcript;
 
@@ -99,36 +106,31 @@
 
                         try {
                             addMessage(transcript, 'user');
-                            
+
                             const response = await fetch('/chat', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({message: transcript})
                             });
-                            
+
                             const data = await response.json();
                             if(data.status === 'success') {
                                 addMessage(data.response, 'assistant');
                                 if(data.audio && data.audio.length > 0) {
                                     ttsAudio.src = "data:audio/mpeg;base64," + data.audio;
-                                    ttsAudio.play().then(() => {
-                                        console.log("Audio playing successfully");
-                                    }).catch((error) => {
-                                        console.error("Error playing audio:", error);
-                                    });
-                                    // Setelah audio selesai, kembali ke mode listening
+                                    ttsAudio.play().catch(console.error);
+
                                     ttsAudio.onended = () => {
                                         isProcessing = false;
                                         statusIndicator.classList.remove('processing');
                                         statusText.textContent = "Listening...";
-                                        recognition.start();
+                                        if (!manualReconnect) recognition.start();
                                     };
                                 } else {
-                                    console.error("No audio data received");
                                     isProcessing = false;
                                     statusIndicator.classList.remove('processing');
                                     statusText.textContent = "Listening...";
-                                    recognition.start();
+                                    if (!manualReconnect) recognition.start();
                                 }
                             }
                         } catch (error) {
@@ -136,26 +138,44 @@
                             isProcessing = false;
                             statusIndicator.classList.remove('processing');
                             statusText.textContent = "Listening...";
-                            recognition.start();
+                            if (!manualReconnect) recognition.start();
                         }
                     }
                 };
 
                 recognition.onerror = (event) => {
                     console.error('Recognition error:', event.error);
+                    manualReconnect = true;
                     recognition.stop();
                     statusText.textContent = "Reconnecting...";
-                    setTimeout(initSpeech, 2000);
+                    setTimeout(() => {
+                        manualReconnect = false;
+                        initSpeech();
+                    }, 2000);
                 };
 
                 recognition.onend = () => {
+                    if (manualReconnect) return;
                     if (!isProcessing) {
                         statusText.textContent = "Starting...";
-                        setTimeout(() => recognition.start(), 500);
+                        setTimeout(() => {
+                            try {
+                                recognition.start();
+                            } catch(e) {
+                                console.log('Recognition start error:', e);
+                                initSpeech();
+                            }
+                        }, 500);
                     }
                 };
 
-                recognition.start();
+                try {
+                    recognition.start();
+                } catch(e) {
+                    console.error('Initial start error:', e);
+                    statusText.textContent = "Error starting, retrying...";
+                    setTimeout(initSpeech, 1000);
+                }
             } else {
                 statusText.textContent = "Browser tidak mendukung Speech Recognition. Gunakan Chrome, Edge, atau browser lain yang mendukung fitur ini.";
             }
@@ -167,9 +187,7 @@
             messageDiv.innerHTML = `
                 <div class="message-content">
                     <div class="message-icon">
-                        ${role === 'user' ? 
-                            '<i class="fas fa-user"></i>' : 
-                            '<i class="fas fa-robot"></i>'}
+                        ${role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
                     </div>
                     <div class="bubble">${text}</div>
                 </div>
@@ -178,18 +196,39 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // Event listener untuk overlay; ketika diklik, overlay dihapus dan audio unlocked
-        overlay.addEventListener('click', () => {
-            overlay.style.display = 'none';
-            // Mulai Speech Recognition (ini merupakan interaksi pengguna)
-            initSpeech();
-            // Jika ada audio context yang perlu di-resume, lakukan di sini (untuk browser modern)
-            if (typeof AudioContext !== 'undefined') {
-                const audioCtx = new AudioContext();
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
+        function showMicPermissionPrompt() {
+            Swal.fire({
+                title: 'Microphone Access Required',
+                text: 'This app needs your microphone access permission to let you talk with NOVA.',
+                icon: 'info',
+                background: '#0a0a0a',
+                color: 'white',
+                iconColor: '#00ff9d',
+                confirmButtonColor: '#00ff9d',
+                confirmButtonText: 'Allow Microphone Access',
+                customClass: {
+                    confirmButton: 'swal2-text-black'
                 }
-            }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    overlay.style.display = 'none';
+                    initSpeech();
+                    if (typeof AudioContext !== 'undefined') {
+                        const audioCtx = new AudioContext();
+                        if (audioCtx.state === 'suspended') {
+                            audioCtx.resume();
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = () => {
+            showMicPermissionPrompt();
+        };
+
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
         });
     </script>
 </body>
