@@ -214,11 +214,12 @@ footer {
 }
 
 .logo-image {
-    width: 150px;
+    max-width: 100%;
     height: auto;
     filter: brightness(0) saturate(100%) invert(75%) sepia(98%) saturate(742%) hue-rotate(83deg) brightness(102%) contrast(102%);
     object-fit: contain;
 }
+
 
 
 .swal2-text-black {
