@@ -3,6 +3,10 @@ from groq import Groq
 from dotenv import load_dotenv
 import os
 import uuid
+import requests
+import base64
+from io import BytesIO
+from gtts import gTTS
 
 load_dotenv()
 app = Flask(__name__)
@@ -11,19 +15,32 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # System prompt template
-SYSTEM_PROMPT = "You are NOVA (Neural-Orchestrated Voice Assistant), a friendly and chill super intelligence AI created by O.Midiyanto. Keep responses very short and conversational."
+SYSTEM_PROMPT = (
+    "You are NOVA (Neural-Orchestrated Voice Assistant), a friendly and super intelligence AI created by O.Midiyanto. "
+    "Keep responses very short and conversational."
+)
 
 def get_chat_history():
     """Initialize or retrieve session-specific chat history"""
     if 'chat_history' not in session:
-        session['chat_history'] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
+        session['chat_history'] = [{"role": "system", "content": SYSTEM_PROMPT}]
     return session['chat_history']
 
 def trim_history(history, max_length=6):
     """Keep only the system prompt + last max_length messages"""
     return [history[0]] + history[-max_length:]
+
+def generate_tts_audio(text):
+    """
+    Menggunakan gTTS untuk menghasilkan audio (MP3) dari input text.
+    Mengembalikan hasil audio dalam bentuk base64 string.
+    """
+    tts = gTTS(text=text, lang="en")
+    audio_io = BytesIO()
+    tts.write_to_fp(audio_io)
+    audio_io.seek(0)
+    audio_bytes = audio_io.read()
+    return base64.b64encode(audio_bytes).decode("utf-8")
 
 @app.route('/')
 def index():
@@ -56,12 +73,17 @@ def chat():
         # Update session storage and trim history
         session['chat_history'] = trim_history(history)
         
+        # Generate TTS audio (base64 encoded) menggunakan gTTS
+        audio_base64 = generate_tts_audio(assistant_response)
+        
         return jsonify({
             "response": assistant_response,
+            "audio": audio_base64,
             "status": "success"
         })
     
     except Exception as e:
+        app.logger.error(f"Chat endpoint error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 if __name__ == '__main__':
