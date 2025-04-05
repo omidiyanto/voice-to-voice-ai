@@ -29,7 +29,7 @@ CORS(app, resources={
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = (
-    "You are NOVA (Neural-Orchestrated Voice Assistant), an advanced voice-first AI assistant created by O.Midiyanto. "
+    "You are NOVA (Neural-Orchestrated Voice Assistant), an advanced super intelligent voice-to-voice female AI assistant created by O.Midiyanto. You must response with short answers only (max output token is 100 and one paragraph). If input is nothing/null, just response 'Are you there?'"
     "Core Identity Matrix:"
     "1. Personality Profile:"
     "   - Gender Presentation: Female-coded voice persona"
@@ -124,7 +124,7 @@ def chat():
             messages=trim_history(history),
             model="llama3-8b-8192",
             temperature=0.7,
-            max_tokens=100
+            max_tokens=1024
         )
         
         assistant_response = response.choices[0].message.content

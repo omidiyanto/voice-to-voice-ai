@@ -4,8 +4,11 @@
     <title>NOVA - Neural-Orchestrated Voice Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         #overlay {
             position: fixed;
@@ -67,6 +70,16 @@
         let isProcessing = false;
         let recognition;
         let manualReconnect = false;
+
+        // Initialize Marked with options
+        marked.setOptions({
+            breaks: true,
+            sanitize: true,
+            highlight: function(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            }
+        });
 
         function initSpeech() {
             if (recognition) {
@@ -184,14 +197,31 @@
         function addMessage(text, role) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}`;
+            
             messageDiv.innerHTML = `
                 <div class="message-content">
                     <div class="message-icon">
                         ${role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
                     </div>
-                    <div class="bubble">${text}</div>
+                    <div class="bubble"></div>
                 </div>
             `;
+
+            const bubble = messageDiv.querySelector('.bubble');
+            
+            if (role === 'assistant') {
+                bubble.innerHTML = marked.parse(text);
+                
+                // Apply syntax highlighting after DOM update
+                setTimeout(() => {
+                    messageDiv.querySelectorAll('pre code').forEach(block => {
+                        hljs.highlightElement(block);
+                    });
+                }, 0);
+            } else {
+                bubble.textContent = text;
+            }
+
             chatContainer.appendChild(messageDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
