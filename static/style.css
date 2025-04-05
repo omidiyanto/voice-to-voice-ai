@@ -214,11 +214,13 @@ footer {
 }
 
 .logo-image {
-    max-width: 100%;
+    width: 100%;
+    max-width: 160px; /* atau ukuran yang kamu suka */
     height: auto;
     filter: brightness(0) saturate(100%) invert(75%) sepia(98%) saturate(742%) hue-rotate(83deg) brightness(102%) contrast(102%);
     object-fit: contain;
 }
+
 
 
 
