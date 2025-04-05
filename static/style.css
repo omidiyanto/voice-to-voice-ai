@@ -65,16 +65,16 @@ body {
     margin: 1rem auto;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-end; /* Align bars to the bottom */
 }
 
 .audio-visualizer .bar {
     width: 14%;
-    height: 16px;
+    height: 100%;
     background: var(--primary-color);
     border-radius: 3px;
-    animation: bar-pulse 1.2s ease-in-out infinite;
     transform-origin: bottom;
+    animation: bar-pulse 1.2s ease-in-out infinite;
 }
 
 .listening .bar {
@@ -95,6 +95,7 @@ body {
     margin: 1rem auto;
     overflow-y: auto;
     scrollbar-width: none;
+    margin-bottom: 10rem;
 }
 
 .chat-container::-webkit-scrollbar {
@@ -273,15 +274,22 @@ footer {
     opacity: 0.7;
 }
 
+/* More dynamic, realistic keyframes */
 @keyframes bar-pulse {
-    0%, 100% { transform: scaleY(0.4); }
-    50% { transform: scaleY(1); }
+    0%   { transform: scaleY(0.3); }
+    20%  { transform: scaleY(1); }
+    40%  { transform: scaleY(0.5); }
+    60%  { transform: scaleY(0.8); }
+    80%  { transform: scaleY(0.4); }
+    100% { transform: scaleY(0.3); }
 }
 
-@keyframes appear {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+/* Staggered delays for a non-uniform effect */
+.audio-visualizer .bar:nth-child(1) { animation-delay: -0.1s; }
+.audio-visualizer .bar:nth-child(2) { animation-delay: -0.2s; }
+.audio-visualizer .bar:nth-child(3) { animation-delay: -0.3s; }
+.audio-visualizer .bar:nth-child(4) { animation-delay: -0.4s; }
+.audio-visualizer .bar:nth-child(5) { animation-delay: -0.5s; }
 
 .logo {
     display: flex;
@@ -295,6 +303,8 @@ footer {
     height: auto;
     filter: brightness(0) saturate(100%) invert(75%) sepia(98%) saturate(742%) hue-rotate(83deg) brightness(102%) contrast(102%);
     object-fit: contain;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
 }
 
 .swal2-text-black {
