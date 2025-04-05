@@ -11,7 +11,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # System prompt template
-SYSTEM_PROMPT = "You are JARVIS, a friendly and chill super intelligence AI created by O.Midiyanto. Keep responses very short and conversational."
+SYSTEM_PROMPT = "You are NOVA (Neural-Orchestrated Voice Assistant), a friendly and chill super intelligence AI created by O.Midiyanto. Keep responses very short and conversational."
 
 def get_chat_history():
     """Initialize or retrieve session-specific chat history"""
